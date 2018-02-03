@@ -1,4 +1,5 @@
-# serverless-static
+# :sparkles: Serverless Static Plugin
+[![serverless](http://public.serverless.com/badges/v3.svg)](http://www.serverless.com)
 
 ## 1.install the plugin
 First, add Serverless Static to your project, be sure that you already have the [serverless-offline](https://github.com/dherault/serverless-offline) plugin already installed
