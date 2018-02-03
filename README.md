@@ -1,4 +1,4 @@
-# :zap: Serverless Static Plugin :sparkles:
+# :sparkles: Serverless Static Plugin :zap:
 [![serverless](http://public.serverless.com/badges/v3.svg)](http://www.serverless.com)
 
 ## 1.install the plugin
