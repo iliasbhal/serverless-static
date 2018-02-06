@@ -2,52 +2,222 @@
 let express =  require("express")
 let morgan = require('morgan')
 
-class ServerlessStaticServePlugin {
+const AWS = require('aws-sdk');
+const s3 = require('@monolambda/s3')
+
+const actions = require('./src')
+
+
+module.exports = class ServerlessStaticServePlugin {
 
   constructor(serverless, options) {
     this.serverless = serverless;
     this.options = options;
-    this.app = express()
+
+    this.provider = 'aws';
+    this.stage = options.stage || this.serverless.service.provider.stage
+    this.region = options.region || this.serverless.service.provider.region
+
+    this.cli = this.serverless.cli
+
+
+    this.staticOptions = this.serverless.service.custom['static-serve']
+
+
+    // this.aws = this.serverless.getProvider(this.provider);
+    // this.awsCredentials = this.aws.getCredentials();
+
+    // this.s3 = s3.createClient({
+    //   s3Client: new AWS.S3({
+    //     region: this.awsCredentials.region,
+    //     credentials: this.awsCredentials.credentials
+    //   })
+    // });
+
+    // console.log(staticOptions)
+
+
+
+    this.commands = {
+      static: {
+        usage: 'serve local directory',
+        lifecycleEvents: ['serve'],
+        commands: {
+          serve: {
+            usage: 'serve local directory',
+            lifecycleEvents: [ 'start' ],
+          },
+          sync: {
+            usage: 'sync local directory with bucket speficied inside serverless.yml file',
+            lifecycleEvents: [ 'start' ],
+          }
+        }
+      }
+    };
+    
 
     this.hooks = {
-      "before:offline:start:init": this.startServe.bind(this),
-      "after:offline:start:end": this.stopServe.bind(this),
+      // lifecycle hooks for static:serve
+      "before:offline:start:init": actions.serve.bind( null, this.cli, this.staticOptions ), // hook from serverless-offline
+      "before:offline:start": actions.serve.bind( null, this.cli, this.staticOptions ), // hook from serverless-offline
+      'static:serve:start': actions.serve.bind( null, this.cli, this.staticOptions ),
+
+
+      // // lifecycle hooks for statis:sync
+      // "aws:deploy:deploy:uploadArtifacts": this.deployBucket.bind(this),
+      // "static:sync:start": this.deployBucket.bind(this)
     };
+
   }
 
-  startServe() {
-    // getting all custom variables for the plugin
-    let pluginOptions = serverless.service.custom['static-serve']
+  // deployBucket(){ 
+  //   // console.log(this.serverless)
+  //   return new Promise((resolve, reject)=>{
+  //     if( !this.bucketToDeploy ){ resolve(); return; }
+  //     this.serverless.cli.log( `[ Static Deploy ] sync ${ this.staticFolder } folder with bucket ${ this.bucketToDeploy }` );
+  //     this._bucketDeploymentProcess(resolve, reject)
+  //   })
+  // }
 
-    // default values
-    let staticFolder = ( pluginOptions.directory ? pluginOptions.directory : './public')
-    let port = ( pluginOptions.port ? pluginOptions.port : 4001 )
+  // _bucketDeploymentProcess(resolve, reject ){
 
-    // use morgan combined with serverless.log
-    this.app.use(morgan('dev', {
-      "stream": { 
-        write: (str) => { 
-         this.serverless.cli.log( `[ Static Serve ] from ${ staticFolder } - ${ str }` ) 
-        } 
-      }
-    }))
-    
-    // serve files 
-    this.app.use(express.static( staticFolder ))
+  //   this.createBucketIfNotExist( this.bucketToDeploy )
+  //   .then( this.configureBucket.bind( this, this.bucketToDeploy ) )
+  //   .then( resolve, reject )
 
-    // lauch the server that will serve files in localhost
-    this.server = this.app.listen(port, () => { 
-      this.serverless.cli.log( `[ Static Serve ] serving files on http://localhost:${ port}` )
-      this.serverless.cli.log( `[ Static Serve ] serving files from ${ staticFolder }` ); 
-    });
-  }
+  // }
 
-  stopServe(){
-    if (this.server) {
-      this.server.close();
-    }
-  }
+  // createBucketIfNotExist(bucketToDeploy){ 
+  //   return new Promise((resolve, reject)=>{
+
+  //     this.checkIfBucketExist(bucketToDeploy)
+  //       .then((exists)=>{
+  //           if( !exists ){
+
+  //             let params = {
+  //               Bucket: bucketToDeploy
+  //             };
+        
+  //             this.serverless.cli.log( `[ Static Deploy ] Creating bucket ${ bucketToDeploy }` );
+  //             this.aws.request('S3', 'createBucket', params, this.stage, this.region)
+  //                 .then( resolve.bind(this, true), reject )
+
+  //           } else {
+  //             resolve(true)
+  //           }
+  //       })
+
+  //   })
+  // }
+
+  // checkIfBucketExist(bucketToDeploy){ 
+  //   // list all buckets and check if the destination bucket exist already or not
+  //   return new Promise((resolve, reject)=>{
+  //     this.aws.request('S3', 'listBuckets', {}, this.stage, this.region).bind(this)
+  //         .then((data)=>{ 
+  //               resolve(
+  //                 data.Buckets.reduce(( toReturn, bucket )=>{
+  //                   return ( bucket.Name == bucketToDeploy || toReturn )
+  //                 }, false )
+  //               )
+  //         }) 
+  //   })
+  // }
+
+  // configureBucket(bucketToDeploy){
+  //   // configure bucket to behave like a website bucket
+  //   return new Promise((resolve, reject)=>{
+  //     this.serverless.cli.log( `[ Static Deploy ] Configuring bucket ${ bucketToDeploy }` );
+  //     resolve()
+  //   })
+  // }
 
 }
 
-module.exports = ServerlessStaticServePlugin;
+
+
+
+// function configureBucket() {
+//   this.serverless.cli.log(`Configuring website bucket ${this.bucketName}...`);
+
+//   let params = {
+//     Bucket: this.bucketName,
+//     WebsiteConfiguration: {
+//       IndexDocument: { Suffix: 'index.html' },
+//       ErrorDocument: { Key: 'error.html' }
+//     }
+//   };
+
+//   return this.aws.request('S3', 'putBucketWebsite', params, this.stage, this.region)
+// }
+
+// function configurePolicyForBucket(){
+//   this.serverless.cli.log(`Configuring policy for bucket ${this.bucketName}...`);
+
+//   let policy = {
+//     Version: "2008-10-17",
+//     Id: "Policy1392681112290",
+//     Statement: [
+//       {
+//         Sid: "Stmt1392681101677",
+//         Effect: "Allow",
+//         Principal: {
+//           AWS: "*"
+//         },
+//         Action: "s3:GetObject",
+//         Resource: "arn:aws:s3:::" + this.bucketName + '/*'
+//       }
+//     ]
+//   };
+
+//   let params = {
+//     Bucket: this.bucketName,
+//     Policy: JSON.stringify(policy)
+//   };
+
+//   return this.aws.request('S3', 'putBucketPolicy', params, this.stage, this.region);
+// }
+
+// function configureCorsForBucket(){
+//   this.serverless.cli.log(`Configuring CORS policy for bucket ${this.bucketName}...`);
+
+//   let putPostDeleteRule = {
+//     AllowedMethods: [
+//       'PUT',
+//       'POST',
+//       'DELETE'
+//     ],
+//     AllowedOrigins: [
+//       'https://*.amazonaws.com'
+//     ],
+//     AllowedHeaders: [
+//       '*'
+//     ],
+//     MaxAgeSeconds: 0
+//   };
+
+//   let getRule = {
+//     AllowedMethods: [
+//       'GET'
+//     ],
+//     AllowedOrigins: [
+//       '*'
+//     ],
+//     AllowedHeaders: [
+//       '*'
+//     ],
+//     MaxAgeSeconds: 0
+//   };
+
+//   let params = {
+//     Bucket: this.bucketName,
+//     CORSConfiguration: {
+//       CORSRules: [
+//         putPostDeleteRule,
+//         getRule
+//       ]
+//     },
+//   };
+
+//   return this.aws.request('S3', 'putBucketCors', params, this.stage, this.region);
+// }
