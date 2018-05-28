@@ -13,19 +13,20 @@ module.exports = (serverless, settings ) => {
     app.use(morgan('dev', {
       "stream": { 
         write: (str) => { 
-            let write = `[ Static Serve ] from ${ settings.folder } - ${ str }`
+            let write = `[ Static Serve ] from ${ settings.path } - ${ str }`
             serverless.cli.log( write.replace(/[\n\r]+/g, '').trim() ) 
         } 
       }
     }))
     
-    app.use(express.static( settings.folder ))
+    app.use(express.static( settings.path ))
 
     app.listen( settings.port, () => { 
 
       serverless.cli.consoleLog('') 
-      serverless.cli.log( `[ Static Serve ] serving files on http://localhost:${ settings.port }` )
-      serverless.cli.log( `[ Static Serve ] serving files from ${ settings.folder } folder` ); 
+      serverless.cli.log( `[ Static ] serving files from ${ settings.path } folder` ); 
+      serverless.cli.log( `[ Static ] serving files on http://localhost:${ settings.port }` )
+      serverless.cli.consoleLog('') 
       resolve()
 
     });

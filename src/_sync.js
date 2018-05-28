@@ -4,34 +4,42 @@ const s3 = require('@monolambda/s3')
 
 module.exports = (serverless, settings ) => {
   return new Promise((resolve, reject)=>{
-    if( !settings.bucket ){
-        if( serverless.processedInput.commands[0] == 'static'  ){ 
-            throw new Error("[ Static ] Error: No bucket is specified in serverless.yml")
-        } else {
-            return // fail silently on deploy, maybe the user does not want to sync to a bucket yet
-        }
+
+    if( ( serverless.processedInput.commands[0] == 'static' && !settings['bucket'] )  ||
+        ( serverless.processedInput.commands[0] == 'deploy' && settings['deploy'] && !settings['bucket'] ) ){
+        throw new Error("[ Static ] Error: No bucket is specified in serverless.yml")
     }  
 
-    //  ----------------------  //
-    // |      BEGIN SYNC      | //
-    //  ----------------------  //
+    // settings.path -> folder to serve
+    // setting.bucket -> port used to configure localhost
+    // settings.deploy -> if user wants to sync bucket during deployment
 
-
-
-    
-
-
-
-
-
-
-
-
-
-
-    resolve() 
-
+    if( serverless.processedInput.commands[0] == 'static' || settings['deploy']){
+        //  -------------------------------  //
+        // |      BEGIN SYNC WITH BUCKET   | //
+        //  -------------------------------  //
+        let cloudName = settings.serverless['name']
+        let provider = serverless.getProvider(cloudName);
+        if( cloudName == 'aws' ){
+            syncWithAWS.apply( null , [provider, resolve, reject ])
+            // resolve() 
+        } else {
+            throw new Error("[ Static ] Error: only AWS is available as a cloud provider for serverless-static plugin")
+        }
+    } 
   })
+}
+
+// 'this' is aws sdk
+function syncWithAWS( provider, resolve, reject){
+    // get provider sdk
+    let AWS = provider['sdk']
+    let S3 = new AWS['S3']()
+
+    // let client = new S3()
+    console.log( S3 )
+
+    resolve()
 }
 
 // 
