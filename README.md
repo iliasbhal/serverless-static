@@ -29,8 +29,8 @@ plugins:
 ## 3. customize behavior (optional)
 ```YAML
 custom:
-  static-serve:
-    directory: ./public # select the folder you want to serve
+  static:
+    path: ./public # select the folder you want to serve
     port: 8000 # select a specific port 
 
 # this will overide default behavior

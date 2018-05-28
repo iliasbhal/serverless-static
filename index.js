@@ -7,14 +7,12 @@ const _static = require('./src/__make_options')
 module.exports = class ServerlessStaticServePlugin {
 
   constructor(serverless, options) {
-    console.log( 'options', options )
-
     const static_env = _static( serverless, options ) // generate static object with all options available to the functions
 
     this.commands = {
       static: {
         usage: 'serve local directory',
-        lifecycleEvents: ['serve'],
+        lifecycleEvents: ['start'],
         commands: {
           serve: {
             usage: 'serve local directory',
@@ -30,15 +28,17 @@ module.exports = class ServerlessStaticServePlugin {
 
     this.hooks = {
       // lifecycle hooks for static:serve
-      "before:offline:start:init": actions.serve.bind( null, serverless, static_env ), // hook from serverless-offline
-      "before:offline:start": actions.serve.bind( null, serverless, static_env ), // hook from serverless-offline
-      'static:serve:start': actions.serve.bind( null, serverless, static_env ),
+      "before:offline:start:init": actions.serve.bind( this, serverless, static_env ), // hook from serverless-offline
+      "before:offline:start": actions.serve.bind( this, serverless, static_env ), // hook from serverless-offline
+      'static:serve:start': actions.serve.bind( this, serverless, static_env ),
       // 'static:serve': actions.serve.bind( null, serverless, static_env ),
 
 
       // // lifecycle hooks for statis:sync
       // "aws:deploy:deploy:uploadArtifacts": actions.sync.bind( null, serverless, static_env ),
-      "static:sync:start": actions.sync.bind( null, serverless, static_env )
+      "static:sync:start": actions.sync.bind( this, serverless, static_env ),
+      "static:start": actions.sync.bind( this, serverless, static_env ),
+      "deploy:initialize": actions.sync.bind( this, serverless, static_env )
     };
 
   }
