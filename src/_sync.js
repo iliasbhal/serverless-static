@@ -1,9 +1,9 @@
 'use strict';
-const AWS = require('aws-sdk');
-const s3 = require('@monolambda/s3')
 
 module.exports = (serverless, settings ) => {
   return new Promise((resolve, reject)=>{
+
+    //   console.log = serverless.cli.log
 
     if( ( serverless.processedInput.commands[0] == 'static' && !settings['bucket'] )  ||
         ( serverless.processedInput.commands[0] == 'deploy' && settings['deploy'] && !settings['bucket'] ) ){
@@ -19,7 +19,7 @@ module.exports = (serverless, settings ) => {
         // |      BEGIN SYNC WITH BUCKET   | //
         //  -------------------------------  //
         switch( settings.serverless['name'] ){
-            case 'aws': syncWithAWS.apply( serverless , [ serverless ]).then(resolve).catch(reject) ; break
+            case 'aws': syncWithAWS.apply( this , [ serverless, settings ]).then(resolve).catch(reject) ; break
             default : throw new Error("[ Static ] Error: only AWS is available as a cloud provider for serverless-static plugin")
         }
     } 
@@ -28,18 +28,107 @@ module.exports = (serverless, settings ) => {
 
 
 // 'this' is serverless
-function syncWithAWS( serverless ){
+function syncWithAWS( serverless, settings ){
+    const AWS = require('aws-sdk');
+    const s3 = require('@monolambda/s3');
+
     return new Promise((resolve, reject)=>{
-        let AWS = this.getProvider('aws')['sdk']
-        console.log( this )
+        let AWS = serverless.getProvider('aws')['sdk']
+        let profileName = serverless.service.provider.profile 
+        let bucketName = settings['bucket']
+
+        if( profileName ){
+            AWS.config.credentials = new AWS.SharedIniFileCredentials({ profile: profileName }) 
+        }
+        
         let S3 = new AWS['S3']()
     
-        // let client = new S3()
-        listBuckets(S3).then((buckets)=>{
-            console.log(buckets)
+        getOrCreateBucket(S3, bucketName).then((buckets)=>{
+            // the bucket exists or is now created
+            var client = s3.createClient({ s3Client: S3 });
 
-            resolve()
+            var params = {
+                localDir: settings['path'],
+                deleteRemoved: true, // default false, whether to remove s3 objects that have no corresponding local file.
+                s3Params: { // See: http://docs.aws.amazon.com/AWSJavaScriptSDK/latest/AWS/S3.html#putObject-property
+                  Bucket: bucketName, // other options supported by putObject, except Body and ContentLength.
+                  ACL: 'public-read'
+                //   Prefix: "/",
+                }
+            };
+
+            deleteBucketContent(client, params['s3Params'])
+            .then( uploadBucketContent.bind( serverless, client, params ) )
+            .then( resolve )
+            .catch( reject )
+
+
+           
+
+            // resolve()
         })
+        .catch( reject )
+    })
+}
+
+function deleteBucketContent(client, params){
+    return new Promise(( resolve, reject )=>{
+        let folderDeleter = client.deleteDir(params)
+        folderDeleter.on('error', reject );
+        folderDeleter.on('end', resolve);
+    })
+}
+
+// this = serverless
+function uploadBucketContent(client, params){
+    return new Promise(( resolve, reject )=>{
+        let uploader =  client.uploadDir(params)
+        this.cli.log( `[ STATIC ] sync ${ params['localDir'] } to bucket ${ params['s3Params']['Bucket'] }` ) 
+
+        uploader.on('error', reject );
+        uploader.on('end', resolve);
+
+        let oldProgress = 0
+        uploader.on('progress', ()=> {
+            if(  uploader.progressAmount > 0 &&  uploader.progressTotal > 0){
+                let progress = (( uploader.progressAmount / uploader.progressTotal ) * 100).toString()
+                                    .substr(0,3).replace('.', '')
+                
+                if( oldProgress != progress ){ 
+                    oldProgress = progress
+                    // progress = 0, 1, 85 .... -> 100
+                    // this.cli.log( `[ STATIC ] sync ${ params['localDir'] } to bucket ${ params['s3Params']['Bucket'] }` ) 
+                }
+            }
+        });
+    })
+}
+
+function getOrCreateBucket( S3, bucketName){
+    return new Promise(( resolve, reject )=>{
+        listBuckets(S3).then((buckets)=>{
+        
+            let bucketExistsAlready = buckets.reduce(( acc, current )=>{
+                return acc ? acc : current['Name'] == bucketName
+            }, false)
+
+            if( !bucketExistsAlready){
+
+                var bucketParams = {
+                    Bucket: bucketName, /* required */
+                    ACL: 'public-read'
+                  };
+
+                S3.createBucket(bucketParams, function(err, data) {
+                    if (err) { reject(err); return }// an error occurred
+                    resolve(true);         // successful response
+                });
+                
+            } else {
+                resolve(true)
+            }
+        })
+        .catch( reject )
     })
 }
 
