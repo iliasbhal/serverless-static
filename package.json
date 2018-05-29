@@ -1,6 +1,6 @@
 {
   "name": "serverless-static",
-  "version": "0.0.2",
+  "version": "1.0.0",
   "description": "serve static file throught serverless-offline-plugin",
   "main": "index.js",
   "scripts": {
