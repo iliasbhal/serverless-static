@@ -18,42 +18,39 @@ module.exports = (serverless, settings ) => {
         //  -------------------------------  //
         // |      BEGIN SYNC WITH BUCKET   | //
         //  -------------------------------  //
-        let cloudName = settings.serverless['name']
-        let provider = serverless.getProvider(cloudName);
-        if( cloudName == 'aws' ){
-            syncWithAWS.apply( null , [provider, resolve, reject ])
-            // resolve() 
-        } else {
-            throw new Error("[ Static ] Error: only AWS is available as a cloud provider for serverless-static plugin")
+        switch( settings.serverless['name'] ){
+            case 'aws': syncWithAWS.apply( serverless , [ serverless ]).then(resolve).catch(reject) ; break
+            default : throw new Error("[ Static ] Error: only AWS is available as a cloud provider for serverless-static plugin")
         }
     } 
   })
 }
 
-// 'this' is aws sdk
-function syncWithAWS( provider, resolve, reject){
-    // get provider sdk
-    let AWS = provider['sdk']
-    let S3 = new AWS['S3']()
 
-    // let client = new S3()
-    console.log( S3 )
+// 'this' is serverless
+function syncWithAWS( serverless ){
+    return new Promise((resolve, reject)=>{
+        let AWS = this.getProvider('aws')['sdk']
+        console.log( this )
+        let S3 = new AWS['S3']()
+    
+        // let client = new S3()
+        listBuckets(S3).then((buckets)=>{
+            console.log(buckets)
 
-    resolve()
+            resolve()
+        })
+    })
 }
 
-// 
-    // this.aws = this.serverless.getProvider(this.provider);
-    // this.awsCredentials = this.aws.getCredentials();
-
-    // this.s3 = s3.createClient({
-    //   s3Client: new AWS.S3({
-    //     region: this.awsCredentials.region,
-    //     credentials: this.awsCredentials.credentials
-    //   })
-    // });
-
-
+function listBuckets(S3){
+    return new Promise(( resolve, reject )=>{
+        S3.listBuckets({}, (err, data)=>{
+            if (err) reject(err); // an error occurred
+            else     resolve(data['Buckets']);   
+        }) 
+    })
+}
   // deployBucket(){ 
   //   // console.log(this.serverless)
   //   return new Promise((resolve, reject)=>{
