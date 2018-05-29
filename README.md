@@ -39,8 +39,8 @@ custom:
 ```
 
 
-## Todo
+<!-- ## Todo
 
 - [ ] support for serving multiple directories
-- [ ] deploy / sync folder and bucket
+- [ ] deploy / sync folder and bucket -->
 
